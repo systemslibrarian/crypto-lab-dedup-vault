@@ -96,6 +96,18 @@ test("skip link, form, disclosure, and project links are keyboard reachable", as
     page.getByRole("button", { name: "Run all experiments" }),
   ).toBeFocused();
   await page.keyboard.press("Tab");
+  await expect(
+    page.getByRole("link", { name: "Noble Curves’ security record" }),
+  ).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(
+    page.getByRole("link", { name: "Noble Ciphers’ security record" }),
+  ).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(
+    page.getByRole("link", { name: "AES-SIV entered in 2.1.1" }),
+  ).toBeFocused();
+  await page.keyboard.press("Tab");
   await expect(page.locator("summary")).toBeFocused();
   await page.keyboard.press("Enter");
   await expect(page.locator("details")).toHaveAttribute("open", "");
@@ -118,9 +130,16 @@ test("reduced-motion preference disables smooth scrolling and animation", async 
   await page.goto(".");
   const styles = await page.evaluate(() => ({
     scrollBehavior: getComputedStyle(document.documentElement).scrollBehavior,
-    buttonTransition: getComputedStyle(document.querySelector("button")!)
-      .transitionDuration,
+    buttonTransitionSeconds: getComputedStyle(document.querySelector("button")!)
+      .transitionDuration.split(",")
+      .map((duration) => {
+        const value = Number.parseFloat(duration);
+        return duration.trim().endsWith("ms") ? value / 1000 : value;
+      }),
   }));
   expect(styles.scrollBehavior).toBe("auto");
-  expect(styles.buttonTransition).toMatch(/0\.00001s|0s/);
+  expect(styles.buttonTransitionSeconds.length).toBeGreaterThan(0);
+  expect(
+    styles.buttonTransitionSeconds.every((seconds) => seconds <= 0.00001),
+  ).toBe(true);
 });

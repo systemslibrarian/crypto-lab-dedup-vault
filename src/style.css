@@ -217,9 +217,6 @@ button:hover {
   color: var(--muted);
 }
 
-.output[data-stale="true"] {
-  opacity: 0.58;
-}
 .output[data-stale="true"]::before {
   content: "STALE EVIDENCE";
   display: block;

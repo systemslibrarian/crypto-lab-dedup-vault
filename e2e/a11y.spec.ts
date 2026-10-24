@@ -81,7 +81,7 @@ for (const width of [320, 380, 390, 768, 1440]) {
   });
 }
 
-test("skip link, form, disclosure, and project links are keyboard reachable", async ({
+test("skip link, form, and disclosure are keyboard reachable", async ({
   page,
 }) => {
   await page.goto(".");
@@ -111,8 +111,12 @@ test("skip link, form, disclosure, and project links are keyboard reachable", as
   await expect(page.locator("summary")).toBeFocused();
   await page.keyboard.press("Enter");
   await expect(page.locator("details")).toHaveAttribute("open", "");
+});
 
-  await page.reload();
+test("project links are keyboard reachable from a fresh document", async ({
+  page,
+}) => {
+  await page.goto(".");
   await page.keyboard.press("Tab");
   await expect(page.locator(".skip-link")).toBeFocused();
   await page.keyboard.press("Tab");

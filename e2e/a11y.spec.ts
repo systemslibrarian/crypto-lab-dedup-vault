@@ -1,62 +1,44 @@
-import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
+
+import {
+  boot,
+  driveAllStates,
+  expectBaselineNotStale,
+  expectNoHorizontalOverflow,
+  NARROW,
+  reportCollected,
+  scan,
+  watchPageErrors,
+} from "./gate";
 
 const pageErrors = new WeakMap<Page, string[]>();
 
 test.beforeEach(async ({ page }) => {
-  const errors: string[] = [];
-  pageErrors.set(page, errors);
-  page.on("pageerror", (error) => errors.push(error.message));
+  pageErrors.set(page, watchPageErrors(page));
 });
 
 test.afterEach(async ({ page }) => {
-  expect(pageErrors.get(page) ?? []).toEqual([]);
+  const errors = pageErrors.get(page) ?? [];
+  expect(errors, errors.join("\n")).toEqual([]);
 });
 
-async function loadAndScan(page: Page): Promise<void> {
-  await page.goto(".");
-  await expect(page.locator("#comparison-output")).toHaveAttribute(
-    "data-stale",
-    "false",
-  );
-  const results = await new AxeBuilder({ page })
-    .withTags(["wcag2a", "wcag2aa", "wcag21aa", "wcag22aa"])
-    .analyze();
-  expect(
-    results.violations,
-    JSON.stringify(results.violations, null, 2),
-  ).toEqual([]);
-}
+const comprehensiveCases = [
+  { osScheme: "dark", viewport: undefined, label: "dark OS preference" },
+  {
+    osScheme: "light",
+    viewport: NARROW,
+    label: "light OS preference at 380px",
+  },
+] as const;
 
-for (const colorScheme of ["dark", "light"] as const) {
-  test(`dark-only lesson is accessible when OS preference is ${colorScheme}`, async ({
-    page,
-  }) => {
-    await page.emulateMedia({ colorScheme });
-    await loadAndScan(page);
-    await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
-    await page
-      .locator("#file-input")
-      .fill("Changed input for the accessibility state");
-    await expect(page.locator("#comparison-output")).toHaveAttribute(
-      "data-stale",
-      "true",
-    );
-    let results = await new AxeBuilder({ page })
-      .withTags(["wcag2a", "wcag2aa", "wcag21aa", "wcag22aa"])
-      .analyze();
-    expect(
-      results.violations,
-      JSON.stringify(results.violations, null, 2),
-    ).toEqual([]);
-    await page.getByRole("button", { name: "Run all experiments" }).click();
-    results = await new AxeBuilder({ page })
-      .withTags(["wcag2a", "wcag2aa", "wcag21aa", "wcag22aa"])
-      .analyze();
-    expect(
-      results.violations,
-      JSON.stringify(results.violations, null, 2),
-    ).toEqual([]);
+for (const { osScheme, viewport, label } of comprehensiveCases) {
+  test(`honest WCAG A/AA gate under ${label}`, async ({ page }) => {
+    test.setTimeout(900_000);
+    if (viewport) await page.setViewportSize(viewport);
+    await boot(page, osScheme);
+    await driveAllStates(page, label);
+    expectBaselineNotStale();
+    reportCollected();
   });
 }
 
@@ -64,16 +46,11 @@ for (const width of [320, 380, 390, 768, 1440]) {
   test(`reflows without page-level horizontal clipping at ${width}px`, async ({
     page,
   }) => {
+    test.setTimeout(300_000);
     await page.setViewportSize({ width, height: 900 });
-    await loadAndScan(page);
-    const overflow = await page.evaluate(() => ({
-      document:
-        document.documentElement.scrollWidth -
-        document.documentElement.clientWidth,
-      body: document.body.scrollWidth - document.body.clientWidth,
-    }));
-    expect(overflow.document).toBeLessThanOrEqual(1);
-    expect(overflow.body).toBeLessThanOrEqual(1);
+    await boot(page, "dark");
+    await scan(page, `arrival at ${width}px`);
+    await expectNoHorizontalOverflow(page, `arrival at ${width}px`);
     await expect(
       page.getByRole("button", { name: "Run all experiments" }),
     ).toBeVisible();
@@ -86,9 +63,9 @@ test("skip link, form, and disclosure are keyboard reachable", async ({
 }) => {
   await page.goto(".");
   await page.keyboard.press("Tab");
-  await expect(page.locator(".skip-link")).toBeFocused();
+  await expect(page.locator(".cl-skip-link")).toBeFocused();
   await page.keyboard.press("Enter");
-  await expect(page.locator("#main-content")).toBeFocused();
+  await expect(page.locator("#app")).toBeFocused();
   await page.keyboard.press("Tab");
   await expect(page.locator("#file-input")).toBeFocused();
   await page.keyboard.press("Tab");
@@ -118,13 +95,48 @@ test("project links are keyboard reachable from a fresh document", async ({
 }) => {
   await page.goto(".");
   await page.keyboard.press("Tab");
-  await expect(page.locator(".skip-link")).toBeFocused();
+  await expect(page.locator(".cl-skip-link")).toBeFocused();
   await page.keyboard.press("Tab");
-  await expect(page.locator(".brand")).toBeFocused();
+  await expect(
+    page.getByRole("link", { name: "Crypto Lab home" }),
+  ).toBeFocused();
   await page.keyboard.press("Tab");
-  await expect(page.getByRole("link", { name: "Catalog" })).toBeFocused();
+  await expect(
+    page.getByRole("link", { name: "Crypto Lab menu" }),
+  ).toBeFocused();
   await page.keyboard.press("Tab");
-  await expect(page.getByRole("link", { name: "Source" })).toBeFocused();
+  await expect(
+    page.getByRole("link", { name: "View this project on GitHub" }),
+  ).toBeFocused();
+});
+
+test("fleet chrome, bounded hero, and teaching footer remain present", async ({
+  page,
+}) => {
+  await page.goto(".");
+  await expect(page).toHaveTitle("Dedup Vault — crypto-lab");
+  await expect(page.getByRole("banner")).toHaveCount(1);
+  await expect(page.locator("h1.cl-hero-title")).toHaveText("Dedup Vault");
+  await expect(page.locator(".cl-hero-sub")).toContainText(
+    "Message-locked encryption",
+  );
+  await expect(page.locator(".cl-hero-why-label")).toHaveText("WHY IT MATTERS");
+  await expect(page.locator(".scope-banner")).toContainText(
+    "not a production storage design",
+  );
+  await expect(page.locator(".scripture-footer")).toContainText(
+    "do it all for the glory of God",
+  );
+  await expect(page.locator('link[rel="icon"]')).toHaveAttribute(
+    "href",
+    /^data:image\/svg\+xml/,
+  );
+  expect(
+    await page.evaluate(() => ({
+      attribute: document.documentElement.dataset.theme,
+      stored: localStorage.getItem("theme"),
+    })),
+  ).toEqual({ attribute: "dark", stored: "dark" });
 });
 
 test("reduced-motion preference disables smooth scrolling and animation", async ({
@@ -138,7 +150,7 @@ test("reduced-motion preference disables smooth scrolling and animation", async 
       .transitionDuration.split(",")
       .map((duration) => {
         const value = Number.parseFloat(duration);
-        return duration.trim().endsWith("ms") ? value / 1000 : value;
+        return duration.trim().endsWith("ms") ? value / 1_000 : value;
       }),
   }));
   expect(styles.scrollBehavior).toBe("auto");

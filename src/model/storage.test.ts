@@ -88,8 +88,10 @@ describe("exact-byte deduplicating storage", () => {
 
   it("(DV-17) keeps formerly ambiguous owner/reference tuples distinct", () => {
     const store = new DedupStore();
-    put(store, "a\u0000b", "c", utf8("first"));
-    put(store, "a", "b\u0000c", utf8("second"));
+    expect(() => {
+      put(store, "a\u0000b", "c", utf8("first"));
+      put(store, "a", "b\u0000c", utf8("second"));
+    }).not.toThrow();
 
     expect(store.stats().references).toBe(2);
     expect(store.read("a\u0000b", "a\u0000b", "c").ciphertext).toEqual(

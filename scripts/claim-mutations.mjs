@@ -161,7 +161,7 @@ const MUTATIONS = [
     file: "src/model/boundaries.ts",
     anchor: "cachedCopyStillOpened: equalBytes(cachedPlaintext, file),",
     replacement: "cachedCopyStillOpened: false,",
-    target: unit("src/model/boundaries.test.ts", "DV-12"),
+    target: browser("DV-12"),
   },
   {
     id: "DV-13",
@@ -258,6 +258,34 @@ const MUTATIONS = [
     anchor: '      "Combined key-server and ciphertext compromise",',
     replacement: '      "Key-server compromise",',
     target: browser("DV-21"),
+  },
+  {
+    id: "DV-22",
+    finding:
+      "The all-green lifecycle fixture must keep the cached-copy revocation limit visible.",
+    file: "src/main.ts",
+    anchor:
+      "Future modeled reads and derivations are denied; a cached authorized copy still opens.",
+    replacement: "Future modeled reads and derivations are denied.",
+    target: browser("DV-22"),
+  },
+  {
+    id: "DV-23",
+    finding:
+      "Re-emitting or restoring the last computed input must not retire matching evidence.",
+    file: "src/main.ts",
+    anchor: "const stale = input.value !== lastComputedInput;",
+    replacement: "const stale = true;",
+    target: browser("DV-23"),
+  },
+  {
+    id: "DV-24",
+    finding:
+      "An empty synthetic file must be rejected without freshening prior evidence.",
+    file: "src/main.ts",
+    anchor: "if (file.length === 0) {",
+    replacement: "if (file.length < 0) {",
+    target: browser("DV-24"),
   },
 ];
 

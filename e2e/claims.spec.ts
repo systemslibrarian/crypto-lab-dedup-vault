@@ -273,7 +273,7 @@ test.describe("Dedup Vault learner-visible claims", () => {
     );
   });
 
-  test("all lifecycle verdicts are executable and possession stays separate from authorization", async ({
+  test("(DV-12, DV-22) all lifecycle verdicts stay green while cached-copy revocation remains a visible limit", async ({
     page,
   }) => {
     await load(page);
@@ -289,20 +289,52 @@ test.describe("Dedup Vault learner-visible claims", () => {
     expect(text).toContain("Revocation is prospective");
     expect(text).toContain("Rotation changes future derivation");
     expect(text).toContain("VOPRF proof tamper is rejected");
+    const revocation = page
+      .locator(".boundary-list li")
+      .filter({ hasText: "Revocation is prospective" });
+    await expect(revocation).toHaveAttribute("data-passed", "true");
+    await expect(revocation).toContainText(
+      "cached authorized copy still opens",
+    );
   });
 
-  test("(DV-10) input changes invalidate every result until all experiments rerun", async ({
+  test("(DV-10, DV-23, DV-24) freshness distinguishes changes, no-ops, and rejected empty input", async ({
     page,
   }) => {
     await load(page);
     const input = page.locator("#file-input");
-    await input.fill("A changed synthetic file — α");
-    for (const id of [
+    const outputIds = [
       "comparison-output",
       "attack-output",
       "roles-output",
       "boundary-output",
-    ]) {
+    ];
+
+    await input.dispatchEvent("input");
+    for (const id of outputIds) {
+      await expect(page.locator(`#${id}`)).toHaveAttribute(
+        "data-stale",
+        "false",
+      );
+    }
+    await expect(page.locator("#run-status")).toContainText(
+      "no rerun is needed",
+    );
+
+    await input.fill("A temporary change");
+    await input.fill(DEFAULT_FILE);
+    for (const id of outputIds) {
+      await expect(page.locator(`#${id}`)).toHaveAttribute(
+        "data-stale",
+        "false",
+      );
+    }
+    await expect(page.locator("#run-status")).toContainText(
+      "no rerun is needed",
+    );
+
+    await input.fill("A changed synthetic file — α");
+    for (const id of outputIds) {
       await expect(page.locator(`#${id}`)).toHaveAttribute(
         "data-stale",
         "true",
@@ -311,12 +343,7 @@ test.describe("Dedup Vault learner-visible claims", () => {
     await expect(page.locator("#run-status")).toContainText("stale");
 
     await page.getByRole("button", { name: "Run all experiments" }).click();
-    for (const id of [
-      "comparison-output",
-      "attack-output",
-      "roles-output",
-      "boundary-output",
-    ]) {
+    for (const id of outputIds) {
       await expect(page.locator(`#${id}`)).toHaveAttribute(
         "data-stale",
         "false",
@@ -331,6 +358,32 @@ test.describe("Dedup Vault learner-visible claims", () => {
     ).length;
     expect(changed[0].total).toBe(changedBytes * 2 + 64);
     expect(changed[1].total).toBe(changedBytes + 64);
+
+    await input.dispatchEvent("input");
+    for (const id of outputIds) {
+      await expect(page.locator(`#${id}`)).toHaveAttribute(
+        "data-stale",
+        "false",
+      );
+    }
+
+    await input.fill("");
+    for (const id of outputIds) {
+      await expect(page.locator(`#${id}`)).toHaveAttribute(
+        "data-stale",
+        "true",
+      );
+    }
+    await page.getByRole("button", { name: "Run all experiments" }).click();
+    await expect(page.locator("#run-status")).toHaveText(
+      "Enter at least one character.",
+    );
+    for (const id of outputIds) {
+      await expect(page.locator(`#${id}`)).toHaveAttribute(
+        "data-stale",
+        "true",
+      );
+    }
   });
 
   test("(DV-11) adaptation and limitations remain visible rather than implied", async ({

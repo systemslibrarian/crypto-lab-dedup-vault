@@ -30,14 +30,20 @@ if (!app) throw new Error("application root is missing");
 
 app.innerHTML = `
   <main id="main-content" tabindex="-1">
-    <header class="hero">
-      <p class="eyebrow">Applied cryptography · A-D-01</p>
-      <h1>Dedup Vault</h1>
-      <p class="lede">When equal plaintexts should occupy one encrypted blob, what equality leaks—and who can test guesses?</p>
-      <div class="scope-banner">
-        <strong>Bounded teaching model.</strong> This browser lab uses real AES-128-CTR, AES-SIV-CMAC-256 (two AES-128 subkeys), SHA-256, and RFC 9497 P256-SHA256 VOPRF computations. It is not a production storage design.
+    <header class="cl-hero" role="group">
+      <div class="cl-hero-main">
+        <h1 class="cl-hero-title">Dedup Vault</h1>
+        <p class="cl-hero-sub">Message-locked encryption · RFC 9497 VOPRF</p>
+        <p class="cl-hero-desc">Run three real encryption choices for equal files, then measure which bytes deduplicate and which guesses become testable.</p>
       </div>
+      <aside class="cl-hero-why" aria-label="Why it matters">
+        <span class="cl-hero-why-label">WHY IT MATTERS</span>
+        <p class="cl-hero-why-text">Encrypted deduplication saves repeated storage only by making equality observable. This lesson shows when that signal enables offline guessing, what a key server changes, and what it still cannot hide.</p>
+      </aside>
     </header>
+    <div class="scope-banner">
+      <strong>Bounded teaching model.</strong> This browser lab uses real AES-128-CTR, AES-SIV-CMAC-256 (two AES-128 subkeys), SHA-256, and RFC 9497 P256-SHA256 VOPRF computations. It is not a production storage design.
+    </div>
 
     <section class="exhibit" aria-labelledby="exhibit-1-heading">
       <p class="exhibit-number">Exhibit 1</p>
@@ -117,8 +123,8 @@ app.innerHTML = `
       </nav>
     </section>
   </main>
-  <footer>
-    <p>All files and guesses in this lesson are synthetic and computed locally. Inspect the source and tests for every displayed claim.</p>
+  <footer class="scripture-footer">
+    <p>So whether you eat or drink or whatever you do, do it all for the glory of God. — 1 Corinthians 10:31</p>
   </footer>
 `;
 
@@ -138,6 +144,7 @@ const rolesOutput = requiredElement<HTMLDivElement>("#roles-output");
 const boundaryOutput = requiredElement<HTMLDivElement>("#boundary-output");
 
 const outputs = [comparisonOutput, attackOutput, rolesOutput, boundaryOutput];
+let lastComputedInput = "";
 
 function shortHex(value: Uint8Array, bytes = 12): string {
   const complete = bytesToHex(value);
@@ -483,6 +490,7 @@ function boundaryItem(
   detail: string,
 ): HTMLLIElement {
   const item = document.createElement("li");
+  item.setAttribute("role", "listitem");
   item.dataset.passed = String(passed);
   item.innerHTML = "<strong></strong><span></span>";
   item.querySelector("strong")!.textContent =
@@ -494,6 +502,7 @@ function boundaryItem(
 function renderBoundaries(result: BoundaryEvidence): void {
   const list = document.createElement("ul");
   list.className = "boundary-list";
+  list.setAttribute("role", "list");
   list.append(
     boundaryItem(
       "Identifier alone is rejected",
@@ -554,9 +563,11 @@ function renderBoundaries(result: BoundaryEvidence): void {
 }
 
 function markStale(): void {
-  for (const output of outputs) output.dataset.stale = "true";
-  status.textContent =
-    "Inputs changed. Displayed evidence is stale; run again.";
+  const stale = input.value !== lastComputedInput;
+  for (const output of outputs) output.dataset.stale = String(stale);
+  status.textContent = stale
+    ? "Inputs changed. Displayed evidence is stale; run again."
+    : "Input matches the displayed evidence; no rerun is needed.";
 }
 
 function run(): void {
@@ -572,6 +583,7 @@ function run(): void {
   renderAttacks(attacks);
   renderRoles(comparison);
   renderBoundaries(boundaries);
+  lastComputedInput = input.value;
   for (const output of outputs) output.dataset.stale = "false";
   status.textContent = `Fresh evidence computed for ${file.length} UTF-8 bytes.`;
 }

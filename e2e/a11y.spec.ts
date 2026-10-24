@@ -98,7 +98,7 @@ test("project links are keyboard reachable from a fresh document", async ({
   await expect(page.locator(".cl-skip-link")).toBeFocused();
   await page.keyboard.press("Tab");
   await expect(
-    page.getByRole("link", { name: "Crypto Lab home" }),
+    page.getByRole("link", { name: "CL Crypto Lab systemslibrarian.dev home" }),
   ).toBeFocused();
   await page.keyboard.press("Tab");
   await expect(

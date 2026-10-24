@@ -7,6 +7,7 @@ coverage
 !.vscode/extensions.json
 .idea
 *.log
+chat.md
 .env
 .env.local
 

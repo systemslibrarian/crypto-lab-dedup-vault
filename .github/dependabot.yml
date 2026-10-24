@@ -1,0 +1,28 @@
+# Group routine updates so this lab receives one reviewable pull request per
+# ecosystem instead of one pull request per dependency. Breaking npm majors stay
+# separate; GitHub Actions majors are grouped because the lab's complete gate
+# still has to pass before the auto-merge job can run.
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    groups:
+      npm-minor-and-patch:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    groups:
+      github-actions:
+        patterns:
+          - "*"

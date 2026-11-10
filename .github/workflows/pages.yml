@@ -118,6 +118,7 @@ jobs:
         uses: dependabot/fetch-metadata@v3
 
       - name: Merge any bump whose gate went green
+        if: steps.meta.outputs.update-type != 'version-update:semver-major'
         # A sibling update can move main between the gate and merge. Retry that
         # benign race, then leave the pull request open if it still cannot land.
         run: |
